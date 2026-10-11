@@ -1,7 +1,7 @@
 {
   "name": "spatial-sound-studio",
   "productName": "Spatial Sound Studio",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "System-wide spatial audio (binaural 3D, virtual surround, speaker widening) for any headphones, speakers, Bluetooth or home theatre output.",
   "main": "main.js",
   "author": {
