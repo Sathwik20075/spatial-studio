@@ -1,17 +1,17 @@
 {
   "name": "spatial-sound-studio",
   "productName": "Spatial Sound Studio",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "System-wide spatial audio (binaural 3D, virtual surround, speaker widening) for any headphones, speakers, Bluetooth or home theatre output.",
   "main": "main.js",
   "author": {
     "name": "Akkalapotu Sathwik",
     "email": "Sakkalap@student.gitam.edu"
   },
-  "homepage": "https://github.com/YOUR_USERNAME/spatial-sound-studio",
+  "homepage": "https://github.com/Sathwik20075/spatial-studio",
   "repository": {
     "type": "git",
-    "url": "https://github.com/YOUR_USERNAME/spatial-sound-studio.git"
+    "url": "https://github.com/Sathwik20075/spatial-studio.git"
   },
   "license": "MIT",
   "scripts": {
