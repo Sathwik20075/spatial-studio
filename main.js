@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Tray, Menu, nativeImage, session, ipcMain } = require('electron');
+const { app, BrowserWindow, Tray, Menu, nativeImage, session, ipcMain, shell } = require('electron');
 const path = require('path');
 
 // Keep audio running when the window is hidden / minimised / in the tray.
@@ -78,6 +78,11 @@ app.on('activate', showWindow);
 // Do not quit when all windows are closed – we live in the tray.
 app.on('window-all-closed', () => {});
 
+ipcMain.handle('open-sound', () => {
+  const url = process.platform === 'win32' ? 'ms-settings:sound'
+    : process.platform === 'darwin' ? 'x-apple.systempreferences:com.apple.Sound-Settings.extension' : null;
+  if (url) shell.openExternal(url);
+});
 ipcMain.handle('get-login', () => app.getLoginItemSettings().openAtLogin);
 ipcMain.handle('set-login', (_e, on) => {
   app.setLoginItemSettings({ openAtLogin: !!on, args: ['--hidden'] });

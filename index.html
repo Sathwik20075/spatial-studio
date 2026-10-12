@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; media-src 'self' blob: mediastream:">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Spatial Sound Studio</title>
+<style>
+:root{--bg:#f6f7fb;--card:#fff;--tx:#1b1f2a;--mut:#667085;--ac:#5b5bf0;--bd:#e3e5ee;--ok:#1a9d55;--warn:#c27a00}
+@media (prefers-color-scheme:dark){:root{--bg:#10121a;--card:#181b27;--tx:#eceefa;--mut:#9aa0b8;--ac:#8c8cff;--bd:#2a2e40;--ok:#4cd488;--warn:#f0b400}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;line-height:1.45}
+main{max-width:980px;margin:0 auto;padding:16px}
+h1{font-size:1.4rem;margin:4px 0 2px}p.sub{margin:0 0 14px;color:var(--mut);font-size:.9rem}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:720px){.grid{grid-template-columns:1fr}}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:14px}
+.card.wide{grid-column:1/-1}
+.card h2{font-size:.8rem;text-transform:uppercase;letter-spacing:.06em;color:var(--mut);margin:0 0 10px}
+label{display:flex;justify-content:space-between;font-size:.85rem;margin-top:10px}
+label b{font-weight:600;color:var(--ac)}
+label.chk{justify-content:flex-start;gap:8px;align-items:center;cursor:pointer}
+input[type=range]{width:100%;accent-color:var(--ac)}
+select,button{width:100%;padding:9px 10px;border-radius:9px;border:1px solid var(--bd);background:var(--card);color:var(--tx);font:inherit;margin-top:8px}
+button{cursor:pointer;font-weight:600}button.p{background:var(--ac);color:#fff;border-color:var(--ac)}
+.row{display:flex;gap:8px}.row>*{flex:1}
+canvas{width:100%;aspect-ratio:1;border-radius:12px;background:var(--bg);border:1px solid var(--bd);touch-action:none;cursor:grab}
+.note{font-size:.8rem;color:var(--mut);margin-top:8px}
+.status{display:flex;align-items:center;gap:8px;font-weight:600;margin-top:10px}
+.dot{width:10px;height:10px;border-radius:50%;background:var(--mut)}.on .dot{background:var(--ok);box-shadow:0 0 8px var(--ok)}
+.warn{color:var(--warn)}
+.chk4{list-style:none;padding:0;margin:12px 0 0;font-size:.9rem}.chk4 li{padding:3px 0;color:var(--mut)}.chk4 li.ok{color:var(--ok)}.chk4 li.bad{color:var(--warn);font-weight:600}
+.meter{height:6px;background:var(--bd);border-radius:4px;overflow:hidden;margin-top:10px}.meter i{display:block;height:100%;width:0;background:var(--ac)}
+</style></head><body><main>
+<h1>🎧 Spatial Sound Studio</h1>
+<p class="sub">System-wide spatial audio. Start it once, close the window (it keeps running in the tray), then play YouTube, Spotify, games or movies as usual.</p>
+<div class="grid">
+
+<section class="card wide" id="sysCard">
+<h2>System-wide processing</h2>
+<div class="row">
+ <div><label style="margin-top:0">Capture from (virtual cable)</label><select id="inDev"></select></div>
+ <div><label style="margin-top:0">Play to (your real device)</label><select id="outDev"></select></div>
+</div>
+<div class="row">
+ <button class="p" id="start">▶ Start spatial audio</button>
+ <button id="stop">■ Stop</button>
+ <button id="refresh">⟳ Refresh devices</button>
+</div>
+<div class="status" id="status"><span class="dot"></span><span id="stText">Stopped</span></div>
+<div class="meter"><i id="lvl"></i></div>
+<ul class="chk4" id="checks"><li id="c1">• Virtual cable installed</li><li id="c2">• System sound output is the cable</li><li id="c3">• Earbuds / headphones chosen in “Play to”</li><li id="c4">• Audio is reaching the app</li></ul>
+<button id="openSound" style="display:none">Open sound settings</button>
+<label class="chk"><input type="checkbox" id="autoStart"> Start processing automatically when the app opens</label>
+<label class="chk"><input type="checkbox" id="login"> Launch at system login (minimised to tray)</label>
+<div class="note" id="setupNote"></div>
+</section>
+
+<section class="card">
+<h2>Sound field (top view)</h2>
+<canvas id="cv" width="480" height="480"></canvas>
+<div class="note">Drag the dot to place a 3D sound. Virtual-surround mode shows the virtual speakers around you.</div>
+</section>
+
+<section class="card">
+<h2>Output type</h2>
+<select id="profile">
+<option value="headphones">Headphones (wired / Bluetooth) – binaural HRTF</option>
+<option value="earbuds">Earphones / earbuds / AirPods – binaural HRTF</option>
+<option value="laptop">Laptop / desktop speakers – widened stereo</option>
+<option value="tv">TV speakers – widened stereo</option>
+<option value="theatre">Home theatre / soundbar – virtual surround</option>
+</select>
+<div class="row"><button id="m2" class="p">Virtual surround</button><button id="m1">3D object</button></div>
+<label>Speaker angle <b id="vspr">30°</b></label><input type="range" id="spr" min="15" max="80" value="30">
+<label>Azimuth (3D object) <b id="vaz">0°</b></label><input type="range" id="az" min="-180" max="180" value="0">
+<label>Elevation <b id="vel">0°</b></label><input type="range" id="el2" min="-60" max="80" value="0">
+<label>Distance <b id="vdi">2.0 m</b></label><input type="range" id="di" min="0.5" max="8" step="0.1" value="2">
+<div class="row"><button id="orbit">↻ Auto-orbit: off</button></div>
+<label>Orbit speed <b id="vsp">0.4</b></label><input type="range" id="sp" min="0.1" max="1.5" step="0.1" value="0.4">
+</section>
+
+<section class="card">
+<h2>Space &amp; tone</h2>
+<label>Stereo width <b id="vwi">1.0</b></label><input type="range" id="wi" min="0" max="2.5" step="0.05" value="1">
+<label>Room / reverb <b id="vre">15%</b></label><input type="range" id="re" min="0" max="1" step="0.01" value="0.15">
+<label>Bass boost <b id="vba">0 dB</b></label><input type="range" id="ba" min="0" max="12" step="1" value="0">
+<label>Volume <b id="vvo">70%</b></label><input type="range" id="vo" min="0" max="1" step="0.01" value="0.7">
+<button id="demo">🔊 Play test sound</button>
+<div class="note">Headphone modes use HRTF binaural rendering. Speaker modes use equal-power panning with mid/side widening, so there are no height cues. Bluetooth adds some latency, which doesn't affect spatial quality.</div>
+</section>
+</div></main>
+
+<script>
+const $=id=>document.getElementById(id);
+const SLIDERS=['az','el2','di','wi','re','ba','vo','spr','sp'];
+let cfg={};try{cfg=JSON.parse(localStorage.getItem('sss')||'{}')}catch(e){}
+cfg.v=cfg.v||{};
+const save=()=>{try{localStorage.setItem('sss',JSON.stringify(cfg))}catch(e){}};
+const S={az:0,el:0,dist:2,orbit:false,speed:.4,mode:'sur',profile:'headphones',spr:30};
+let ctx,N={},pans=[],demoNode=null,stream=null,capSrc=null,running=false;
+const plat=(window.desktop&&window.desktop.platform)||'';
+
+/* ---------- audio engine ---------- */
+function pos(p,az,el,d){const a=az*Math.PI/180,e=el*Math.PI/180,t=ctx.currentTime;
+ const x=d*Math.sin(a)*Math.cos(e),y=d*Math.sin(e),z=-d*Math.cos(a)*Math.cos(e);
+ if(p.positionX){p.positionX.setTargetAtTime(x,t,.03);p.positionY.setTargetAtTime(y,t,.03);p.positionZ.setTargetAtTime(z,t,.03)}else p.setPosition(x,y,z)}
+function mkPan(){const p=ctx.createPanner();p.panningModel=PROF[S.profile].m;p.distanceModel='inverse';p.refDistance=1;p.rolloffFactor=1;pans.push(p);return p}
+const g=(v=1)=>{const n=ctx.createGain();n.gain.value=v;return n};
+function impulse(sec){const n=ctx.sampleRate*sec,b=ctx.createBuffer(2,n,ctx.sampleRate);
+ for(let c=0;c<2;c++){const d=b.getChannelData(c);for(let i=0;i<n;i++)d[i]=(Math.random()*2-1)*Math.pow(1-i/n,3)}return b}
+
+function init(){
+ if(ctx)return;
+ ctx=new AudioContext({latencyHint:'interactive'});
+ const L=ctx.listener;if(L.forwardX){L.forwardX.value=0;L.forwardY.value=0;L.forwardZ.value=-1;L.upX.value=0;L.upY.value=1;L.upZ.value=0}
+ N.in=ctx.createGain();N.in.channelCount=2;N.in.channelCountMode='explicit';N.in.channelInterpretation='speakers';
+ N.bus=g();N.anIn=ctx.createAnalyser();N.anIn.fftSize=512;
+ N.obj=mkPan();N.objG=g(0);N.in.connect(N.obj);N.obj.connect(N.objG);N.objG.connect(N.bus);
+ const sp=ctx.createChannelSplitter(2);N.in.connect(sp);
+ const l=g(),r=g();sp.connect(l,0);sp.connect(r,1);
+ const c=g(.5);l.connect(c);r.connect(c);
+ const sl=g(.6),sr=g(-.6),sn=g(),sn2=g(-1);l.connect(sl);r.connect(sr);sl.connect(sn);sr.connect(sn);sn.connect(sn2);
+ N.surG=g(1);
+ N.sur=[[l,-1],[r,1],[c,0],[sn,-110],[sn2,110]].map(([n,a])=>{const p=mkPan();n.connect(p);p.connect(N.surG);return{p,a}});
+ N.surG.connect(N.bus);
+ N.conv=ctx.createConvolver();N.conv.buffer=impulse(1.8);N.wet=g(.15);N.bus.connect(N.conv);N.conv.connect(N.wet);
+ N.post=g();N.bus.connect(N.post);N.wet.connect(N.post);
+ const s2=ctx.createChannelSplitter(2),mg=ctx.createChannelMerger(2);N.post.connect(s2);
+ const mid=g(),side=g(1),inv=g(-1);
+ [0,1].forEach(i=>{const m=g(.5);s2.connect(m,i);m.connect(mid);const s=g(i?-.5:.5);s2.connect(s,i);s.connect(side)});
+ mid.connect(mg,0,0);mid.connect(mg,0,1);side.connect(mg,0,0);side.connect(inv);inv.connect(mg,0,1);N.side=side;
+ N.bass=ctx.createBiquadFilter();N.bass.type='lowshelf';N.bass.frequency.value=120;
+ N.vol=g(.7);N.comp=ctx.createDynamicsCompressor();N.an=ctx.createAnalyser();N.an.fftSize=512;
+ mg.connect(N.bass);N.bass.connect(N.vol);N.vol.connect(N.comp);N.comp.connect(N.an);N.comp.connect(ctx.destination);
+ applyPos();SLIDERS.forEach(id=>$(id).oninput&&$(id).oninput());setMode(S.mode);
+}
+function applyPos(){if(!ctx)return;pos(N.obj,S.az,S.el,S.dist);
+ N.sur.forEach(({p,a})=>pos(p,a===-1?-S.spr:a===1?S.spr:a,0,2))}
+
+const PROF={headphones:{m:'HRTF',w:1,re:.15,mode:'sur'},earbuds:{m:'HRTF',w:1,re:.12,mode:'sur'},
+ laptop:{m:'equalpower',w:1.7,re:.1,mode:'sur'},tv:{m:'equalpower',w:1.9,re:.1,mode:'sur'},theatre:{m:'equalpower',w:1.3,re:.2,mode:'sur'}};
+function setProfile(k){const p=PROF[k];S.profile=k;$('profile').value=k;cfg.profile=k;save();
+ pans.forEach(x=>x.panningModel=p.m);setVal('wi',p.w);setVal('re',p.re);setMode(p.mode)}
+$('profile').onchange=e=>setProfile(e.target.value);
+function setMode(m){S.mode=m;$('m2').className=m=='sur'?'p':'';$('m1').className=m=='obj'?'p':'';
+ if(ctx){N.objG.gain.setTargetAtTime(m=='obj'?1:0,ctx.currentTime,.05);N.surG.gain.setTargetAtTime(m=='sur'?1:0,ctx.currentTime,.05)}}
+$('m1').onclick=()=>setMode('obj');$('m2').onclick=()=>setMode('sur');
+
+function setVal(id,v){$(id).value=v;$(id).oninput&&$(id).oninput()}
+function bind(id,out,fmt,fn){$(id).oninput=()=>{const v=+$(id).value;$(out).textContent=fmt(v);cfg.v[id]=v;save();fn(v)}}
+bind('az','vaz',v=>v+'°',v=>{S.az=v;applyPos()});bind('el2','vel',v=>v+'°',v=>{S.el=v;applyPos()});
+bind('di','vdi',v=>v.toFixed(1)+' m',v=>{S.dist=v;applyPos()});bind('sp','vsp',v=>v,v=>S.speed=v);
+bind('spr','vspr',v=>v+'°',v=>{S.spr=v;applyPos()});
+bind('wi','vwi',v=>v.toFixed(1),v=>{if(ctx)N.side.gain.setTargetAtTime(v,ctx.currentTime,.05)});
+bind('re','vre',v=>Math.round(v*100)+'%',v=>{if(ctx)N.wet.gain.setTargetAtTime(v*1.5,ctx.currentTime,.05)});
+bind('ba','vba',v=>v+' dB',v=>{if(ctx)N.bass.gain.setTargetAtTime(v,ctx.currentTime,.05)});
+bind('vo','vvo',v=>Math.round(v*100)+'%',v=>{if(ctx)N.vol.gain.setTargetAtTime(v,ctx.currentTime,.05)});
+$('orbit').onclick=()=>{S.orbit=!S.orbit;$('orbit').textContent='↻ Auto-orbit: '+(S.orbit?'on':'off');if(S.orbit)setMode('obj')};
+
+/* ---------- devices & system capture ---------- */
+const VIRT=/cable output|cable input|vb-audio|blackhole|soundflower|loopback|virtual|monitor of|spatial/i;
+const EARB=/airpods|buds|earbud|earphone|headphone|bluetooth|pods/i,HANDS=/hands-free|handsfree|communications/i;
+let lastSound=0,startedAt=0;
+function setCheck(id,ok,t){const e=$(id);e.className=ok===null?'':ok?'ok':'bad';e.textContent=(ok===null?'• ':ok?'✔ ':'✖ ')+t}
+function runChecks(){
+ const ins=window._ins||[],outs=window._outs||[];
+ const cable=ins.some(d=>VIRT.test(d.label));
+ setCheck('c1',cable,cable?'Virtual cable installed':'Virtual cable not found – install VB-CABLE (Windows) or BlackHole (Mac), then restart your computer');
+ const def=outs.find(d=>d.deviceId==='default');
+ const dn=def?def.label.replace(/^Default - /,''):'';
+ const wc=!!dn&&VIRT.test(dn);
+ if(!def)setCheck('c2',null,'Could not read the system output');else setCheck('c2',wc,wc?'System sound output is the cable':'System sound output is “'+dn+'” – change it to CABLE Input');
+ const o=$('outDev').selectedOptions[0],ol=o?o.textContent:'',real=!!ol&&!VIRT.test(ol);
+ setCheck('c3',real,real?'Playing to: '+ol:'Choose your earbuds / headphones in “Play to”');
+ $('openSound').style.display=(def&&!wc&&(plat==='win32'||plat==='darwin'))?'block':'none';
+ const fresh=performance.now()-lastSound<2500;
+ if(!running)setCheck('c4',null,'Press Start spatial audio');
+ else if(fresh)setCheck('c4',true,'Audio is reaching the app');
+ else if(performance.now()-startedAt>3000)setCheck('c4',false,'No sound reaching the app – play something. If it stays like this, set the system sound output to the cable');
+ else setCheck('c4',null,'Waiting for audio…');
+}
+function autoProfile(l){l=l||'';const k=/soundbar|receiver|dolby|theat/i.test(l)?'theatre':/airpods|buds|earbud|pods/i.test(l)?'earbuds':/hdmi|tv|display/i.test(l)?'tv':/speaker/i.test(l)?'laptop':/head|bluetooth/i.test(l)?'headphones':null;if(k)setProfile(k)}
+setInterval(()=>{if(typeof runChecks==='function')runChecks()},1000);
+async function loadDevices(){
+ try{const t=await navigator.mediaDevices.getUserMedia({audio:true});t.getTracks().forEach(x=>x.stop())}catch(e){}
+ const all=await navigator.mediaDevices.enumerateDevices();
+ const ins=all.filter(d=>d.kind==='audioinput'&&d.deviceId!=='communications');
+ const outs=all.filter(d=>d.kind==='audiooutput'&&d.deviceId!=='communications');
+ fill($('inDev'),ins,cfg.inDev,d=>VIRT.test(d.label));
+ window._ins=ins;window._outs=outs;
+ fill($('outDev'),outs.filter(d=>d.deviceId!=='default'),cfg.outDev,[d=>EARB.test(d.label)&&!HANDS.test(d.label)&&!VIRT.test(d.label),d=>!VIRT.test(d.label)&&d.deviceId!=='']);
+ runChecks();
+ const found=ins.some(d=>VIRT.test(d.label));
+ $('setupNote').innerHTML=found?'Virtual cable detected. Make sure your system sound <b>output</b> is set to it (see README), then press Start.':
+  '<span class="warn">No virtual audio cable found.</span> '+({win32:'Install the free <b>VB-CABLE</b> (vb-audio.com/Cable), then set Windows sound output to “CABLE Input”.',darwin:'Install the free <b>BlackHole 2ch</b> (existential.audio/blackhole), then set macOS sound output to “BlackHole 2ch”.',linux:'Create a null sink: <code>pactl load-module module-null-sink sink_name=spatial</code> and set the system output to it.'}[plat]||'Install a virtual audio cable and set it as your system output.')}
+function fill(sel,list,saved,pref){sel.innerHTML='';list.forEach(d=>{const o=document.createElement('option');o.value=d.deviceId;o.textContent=d.label||d.deviceId;sel.appendChild(o)});
+ const s=list.find(d=>d.deviceId===saved);const p=[].concat(pref).map(f=>list.find(f)).find(Boolean);if(s)sel.value=s.deviceId;else if(p)sel.value=p.deviceId}
+$('refresh').onclick=loadDevices;
+$('inDev').onchange=e=>{cfg.inDev=e.target.value;save()};$('outDev').onchange=e=>{cfg.outDev=e.target.value;save();autoProfile(e.target.selectedOptions[0].textContent);runChecks();if(running)start()};
+$('openSound').onclick=()=>window.desktop&&window.desktop.openSound();
+navigator.mediaDevices.addEventListener&&navigator.mediaDevices.addEventListener('devicechange',loadDevices);
+
+function setStatus(on,t,warn){$('status').className='status'+(on?' on':'');$('stText').textContent=t;$('stText').className=warn?'warn':''}
+async function start(){
+ try{
+  init();await ctx.resume();halt();
+  const inId=$('inDev').value,outId=$('outDev').value;
+  if(!inId){setStatus(false,'Choose a virtual-cable input first',1);return}
+  const inLabel=$('inDev').selectedOptions[0].textContent,outLabel=$('outDev').selectedOptions[0]?.textContent||'';
+  if(VIRT.test(outLabel)||inLabel===outLabel){setStatus(false,'Output must be your real device, not the virtual cable (it would feed back)',1);return}
+  stream=await navigator.mediaDevices.getUserMedia({audio:{deviceId:{exact:inId},echoCancellation:false,noiseSuppression:false,autoGainControl:false,channelCount:2,latency:0}});
+  capSrc=ctx.createMediaStreamSource(stream);capSrc.connect(N.in);capSrc.connect(N.anIn);startedAt=performance.now();
+  if(ctx.setSinkId&&outId)await ctx.setSinkId(outId);
+  running=true;cfg.running=true;save();
+  setStatus(true,'Running – spatial audio is active for everything you play ('+inLabel+' → '+outLabel+')');
+ }catch(e){running=false;setStatus(false,'Could not start: '+e.message,1)}
+}
+function halt(){if(capSrc){capSrc.disconnect();capSrc=null}if(stream){stream.getTracks().forEach(t=>t.stop());stream=null}
+ if(demoNode){try{demoNode.stop()}catch(e){}demoNode=null}}
+$('start').onclick=start;
+$('stop').onclick=()=>{halt();running=false;cfg.running=false;save();setStatus(false,'Stopped')};
+$('autoStart').onchange=e=>{cfg.autoStart=e.target.checked;save()};
+$('login').onchange=async e=>{if(window.desktop)e.target.checked=await window.desktop.setLogin(e.target.checked)};
+
+/* test sound */
+function demoBuffer(){const sr=ctx.sampleRate,b=ctx.createBuffer(2,sr*2,sr),A=b.getChannelData(0),B=b.getChannelData(1);let b0=0,b1=0,b2=0;
+ for(let t=0;t<2;t++){const s=t*sr;for(let i=0;i<sr*.12;i++){const w=Math.random()*2-1;b0=.99*b0+w*.05;b1=.96*b1+w*.2;b2=.7*b2+w*.5;const v=(b0+b1+b2+w*.1)*Math.sin(Math.PI*i/(sr*.12))*.5;A[s+i]+=v;B[s+i]+=v}}
+ for(let t=0;t<2;t++){const s=Math.floor(sr*(t+.5));for(let i=0;i<sr*.18;i++){const v=Math.sin(2*Math.PI*(660+220*t)*i/sr)*Math.sin(Math.PI*i/(sr*.18))*.35;B[s+i]+=v;A[s+i]+=v*.25}}return b}
+$('demo').onclick=async()=>{init();await ctx.resume();if(demoNode){try{demoNode.stop()}catch(e){}demoNode=null;$('demo').textContent='🔊 Play test sound';return}
+ const outId=$('outDev').value;if(ctx.setSinkId&&outId)try{await ctx.setSinkId(outId)}catch(e){}
+ demoNode=ctx.createBufferSource();demoNode.buffer=demoBuffer();demoNode.loop=true;demoNode.connect(N.in);demoNode.start();$('demo').textContent='■ Stop test sound'};
+
+/* ---------- canvas ---------- */
+const cv=$('cv'),c2=cv.getContext('2d');let drag=false;
+const css=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+function draw(){const W=cv.width,cx=W/2,R=W/2-20,ac=css('--ac'),mu=css('--mut'),bd=css('--bd');
+ c2.clearRect(0,0,W,W);c2.strokeStyle=bd;c2.lineWidth=1.5;
+ for(let i=1;i<=4;i++){c2.beginPath();c2.arc(cx,cx,R*i/4,0,7);c2.stroke()}
+ c2.beginPath();c2.moveTo(cx,10);c2.lineTo(cx,W-10);c2.moveTo(10,cx);c2.lineTo(W-10,cx);c2.stroke();
+ c2.fillStyle=mu;c2.font='16px system-ui';c2.textAlign='center';c2.fillText('FRONT',cx,22);c2.fillText('BACK',cx,W-10);
+ if(S.mode=='sur'){[-S.spr,S.spr,0,-110,110].forEach(a=>{const r=a*Math.PI/180,x=cx+Math.sin(r)*R*.55,y=cx-Math.cos(r)*R*.55;c2.fillStyle=ac;c2.globalAlpha=.7;c2.fillRect(x-8,y-8,16,16);c2.globalAlpha=1})}
+ c2.fillStyle=mu;c2.beginPath();c2.arc(cx,cx,13,0,7);c2.fill();c2.beginPath();c2.moveTo(cx,cx-22);c2.lineTo(cx-6,cx-12);c2.lineTo(cx+6,cx-12);c2.fill();
+ if(S.mode=='obj'){const r=S.az*Math.PI/180,d=Math.min(S.dist/8,1)*R,x=cx+Math.sin(r)*d,y=cx-Math.cos(r)*d;
+  c2.shadowColor=ac;c2.shadowBlur=22;c2.fillStyle=ac;c2.beginPath();c2.arc(x,y,Math.max(8,14+S.el/12),0,7);c2.fill();c2.shadowBlur=0}}
+function fromEvt(e){const b=cv.getBoundingClientRect(),k=cv.width/b.width,x=(e.clientX-b.left)*k-cv.width/2,y=(e.clientY-b.top)*k-cv.width/2;
+ setVal('az',Math.round(Math.atan2(x,-y)*180/Math.PI));setVal('di',Math.min(8,Math.max(.5,Math.hypot(x,y)/(cv.width/2-20)*8)).toFixed(1))}
+cv.onpointerdown=e=>{drag=true;cv.setPointerCapture(e.pointerId);setMode('obj');fromEvt(e)};
+cv.onpointermove=e=>drag&&fromEvt(e);cv.onpointerup=()=>drag=false;
+
+let last=performance.now();const buf=new Uint8Array(512);
+(function loop(t){const dt=(t-last)/1000;last=t;
+ if(S.orbit&&!drag){let a=S.az+S.speed*dt*115;if(a>180)a-=360;setVal('az',Math.round(a))}
+ if(ctx){N.an.getByteTimeDomainData(buf);let m=0;for(const v of buf)m=Math.max(m,Math.abs(v-128));$('lvl').style.width=Math.min(100,m/128*140)+'%';
+  N.anIn.getByteTimeDomainData(buf);let mi=0;for(const v of buf)mi=Math.max(mi,Math.abs(v-128));if(mi>2)lastSound=performance.now()}
+ draw();requestAnimationFrame(loop)})(last);
+
+/* ---------- startup ---------- */
+(async()=>{
+ SLIDERS.forEach(id=>{if(cfg.v[id]!==undefined)$(id).value=cfg.v[id];$(id).oninput&&$(id).oninput()});
+ if(cfg.profile){S.profile=cfg.profile;$('profile').value=cfg.profile}
+ $('autoStart').checked=!!cfg.autoStart;
+ if(window.desktop)$('login').checked=await window.desktop.getLogin();
+ await loadDevices();
+ if(!cfg.profile){const o=$('outDev').selectedOptions[0];autoProfile(o&&o.textContent)}
+ if(cfg.autoStart&&cfg.running!==false)start();
+})();
+</script></body></html>
